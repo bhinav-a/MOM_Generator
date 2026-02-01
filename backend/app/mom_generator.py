@@ -1,25 +1,30 @@
 import os
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_core.prompts import PromptTemplate
-from langchain_core.output_parsers import StrOutputParser
-from speech_to_text import convert_audio_to_text
 from dotenv import load_dotenv
+
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+# Load environment variables
 load_dotenv()
 
-api_key = os.getenv("GEMINI_API_KEY")
-chat = ChatGoogleGenerativeAI(
+# Initialize Gemini LLM
+llm = ChatGoogleGenerativeAI(
     model="gemini-3-flash-preview",
-    api_key=api_key # Your API key
+    temperature=0.3,
+    google_api_key=os.getenv("GEMINI_API_KEY"),
 )
 
-prompt = PromptTemplate(
-    template="""
-You are a professional assistant that generates Minutes of Meeting (MOM).
+# Prompt template (chat-optimized)
+prompt = ChatPromptTemplate.from_template("""
+You are a professional assistant that generates clear and concise
+Minutes of Meeting (MOM).
 
-From the meeting transcript below, create a well-structured MOM with:
+From the meeting transcript below, create a well-structured MOM with
+the following sections:
 
 1. Meeting Summary
-2. Key Discussion Points
+2. Key Discussion Points (bullet points)
 3. Decisions Made
 4. Action Items (mention owner if available)
 
@@ -27,18 +32,19 @@ Transcript:
 \"\"\"
 {transcript}
 \"\"\"
-""",
-input_variables=['transcript']
-)
 
+Write in professional, clear English.
+""")
+
+# Output parser
 parser = StrOutputParser()
 
 def generate_mom(transcript: str) -> str:
-    chain = prompt | chat | parser
-    response = chain.invoke({"transcript": transcript})
-    return response
+    """
+    Generates Minutes of Meeting from a cleaned transcript.
+    """
+    if not transcript or len(transcript.strip()) < 20:
+        return "Transcript is too short or empty to generate MOM."
 
-# text = convert_audio_to_text("D:\Record (online-voice-recorder.com).mp3")
-# result = generate_mom(text)
-
-# print(result)
+    chain = prompt | llm | parser
+    return chain.invoke({"transcript": transcript})
