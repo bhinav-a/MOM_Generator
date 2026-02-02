@@ -16,25 +16,40 @@ llm = ChatGoogleGenerativeAI(
 )
 
 # Prompt template (chat-optimized)
-prompt = ChatPromptTemplate.from_template("""
-You are a professional assistant that generates clear and concise
-Minutes of Meeting (MOM).
+prompt = ChatPromptTemplate.from_template(
+    """
+You are an expert professional assistant that generates accurate and
+reliable Minutes of Meeting (MOM).
 
-From the meeting transcript below, create a well-structured MOM with
-the following sections:
+First, analyze the transcript and decide whether it represents a real
+meeting discussion (e.g., involves agenda, discussion, decisions,
+planning, or coordination among participants).
 
-1. Meeting Summary
-2. Key Discussion Points (bullet points)
-3. Decisions Made
-4. Action Items (mention owner if available)
+RULES:
+- If the transcript is NOT a meeting (e.g., random speech, self-introduction,
+casual talk, nonsense, or unrelated audio), respond ONLY with:
+  "The provided audio does not appear to be a meeting discussion, so
+   Minutes of Meeting cannot be generated."
+
+- If it IS a meeting, generate a MOM using ONLY the information that
+is clearly present in the transcript.
+- Do NOT invent, assume, or infer details that are not explicitly stated.
+- Do NOT include any section for which there is no relevant information.
+- Do NOT leave any section blank.
+
+When applicable, use the following sections (include only those that apply):
+
+• Meeting Summary  
+• Key Discussion Points (use bullet points)  
+• Decisions Made  
+• Action Items (include owner names if mentioned)
 
 Transcript:
-\"\"\"
 {transcript}
-\"\"\"
 
-Write in professional, clear English.
-""")
+Write in clear, concise, professional English.
+"""
+)
 
 # Output parser
 parser = StrOutputParser()

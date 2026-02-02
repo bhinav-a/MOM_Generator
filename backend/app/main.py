@@ -6,15 +6,35 @@ from sqlalchemy.orm import Session
 from app.security import hash_password, verify_password
 from app.database import engine, get_db
 from app import models
-from app.models import User , MOM
+from app.models import User , MOM , EmailOTP
 from app.dependencies import get_current_user
 from app.speech_to_text import convert_audio_to_text
 from app.mom_generator import generate_mom
 from app.security import verify_password
 from app.auth import create_access_token
-from app.schemas import UserLogin , UserSignup
+from app.schemas import UserLogin , UserSignup , SignupOTPRequest
+from fastapi.middleware.cors import CORSMiddleware
+from app.utils.otp import generate_otp, hash_otp, get_expiry
+from app.utils.email import send_otp_email
+from datetime import datetime , timedelta
+from dotenv import load_dotenv
+from app.schemas import VerifyOTPRequest
+
+
+
+
+
+load_dotenv()
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 UPLOAD_DIR = "temp_audio"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
@@ -164,3 +184,117 @@ def get_single_mom(
         "transcript": mom.transcript,
         "mom": mom.mom_text
     }
+
+@app.post("/auth/signup/request-otp")
+def request_signup_otp(
+    data: SignupOTPRequest,
+    db: Session = Depends(get_db)
+):
+    email = data.email
+
+    # 🔐 0️⃣ CHECK IF USER ALREADY EXISTS
+    existing_user = db.query(User).filter(User.email == email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=400,
+            detail="Account already exists. Please login."
+        )
+
+    # 🔢 1️⃣ GENERATE OTP
+    otp = generate_otp()
+    otp_hash = hash_otp(otp)
+    expires_at = datetime.utcnow() + timedelta(minutes=5)
+
+    # 🗑️ OPTIONAL: REMOVE OLD OTPs FOR SAME EMAIL
+    db.query(EmailOTP).filter(EmailOTP.email == email).delete()
+
+    # 💾 2️⃣ SAVE OTP FIRST
+    otp_entry = EmailOTP(
+        email=email,
+        otp_hash=otp_hash,
+        expires_at=expires_at
+    )
+    db.add(otp_entry)
+    db.commit()
+
+    # 📧 3️⃣ SEND EMAIL
+    try:
+        send_otp_email(email, otp)
+    except Exception as e:
+        db.delete(otp_entry)
+        db.commit()
+        print("❌ Email failed:", e)
+        raise HTTPException(status_code=500, detail="Failed to send OTP")
+
+    return {"message": "OTP sent successfully"}
+
+
+
+
+@app.post("/auth/signup/verify-otp")
+def verify_otp_and_signup(
+    data: VerifyOTPRequest,
+    db: Session = Depends(get_db)
+):
+    record = (
+        db.query(EmailOTP)
+        .filter(EmailOTP.email == data.email)
+        .order_by(EmailOTP.created_at.desc())
+        .first()
+    )
+
+    if not record:
+        raise HTTPException(status_code=400, detail="OTP not found")
+
+    if record.expires_at < datetime.utcnow():
+        db.delete(record)          # 🧹 delete expired OTP
+        db.commit()
+        raise HTTPException(status_code=400, detail="OTP expired")
+
+    if record.otp_hash != hash_otp(data.otp):
+        raise HTTPException(status_code=400, detail="Invalid OTP")
+
+    # 🚨 prevent duplicate user creation
+    if db.query(User).filter(User.email == data.email).first():
+        raise HTTPException(status_code=400, detail="User already exists")
+
+    # ✅ CREATE USER
+    user = User(
+        email=data.email,
+        hashed_password=hash_password(data.password)
+    )
+
+    db.add(user)
+
+    # 🧹 DELETE OTP AFTER SUCCESSFUL USE
+    db.delete(record)
+
+    db.commit()   # commits both user creation + OTP deletion
+
+    token = create_access_token({"sub": user.email})
+
+    return {
+        "access_token": token,
+        "token_type": "bearer"
+    }
+
+
+@app.delete("/mom/{mom_id}")
+def delete_mom(
+    mom_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    mom = (
+        db.query(MOM)
+        .filter(MOM.id == mom_id, MOM.user_id == current_user.id)
+        .first()
+    )
+
+    if not mom:
+        raise HTTPException(status_code=404, detail="MOM not found")
+
+    db.delete(mom)
+    db.commit()
+
+    return {"message": "MOM deleted successfully"}

@@ -24,3 +24,12 @@ class MOM(Base):
     created_at = Column(DateTime , default=datetime.utcnow)
 
     user = relationship("User" , backref="moms")
+
+class EmailOTP(Base):
+    __tablename__ = "email_otps"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, index=True, nullable=False)
+    otp_hash = Column(String, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
