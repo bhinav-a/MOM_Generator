@@ -1,15 +1,22 @@
-import whisper
+from faster_whisper import WhisperModel
+from pydub import AudioSegment
 import re
 import subprocess
 import uuid
 import os
 
-# ✅ Use SMALL model (best speed vs accuracy on CPU)
-model = whisper.load_model("small")
+# ✅ Optimized model for CPU
+model = WhisperModel(
+    "base",              # faster than small
+    device="cpu",
+    compute_type="int8",
+    cpu_threads=8
+)
+
 
 def preprocess_audio(input_path: str) -> str:
     """
-    Converts audio to 16kHz mono WAV (best format for Whisper)
+    Converts audio to 16kHz mono WAV
     """
     output_path = f"temp_{uuid.uuid4().hex}.wav"
 
@@ -29,20 +36,46 @@ def preprocess_audio(input_path: str) -> str:
     return output_path
 
 
+def split_audio(audio_path: str, chunk_length_ms=5 * 60 * 1000):
+    """
+    Split audio into 5-minute chunks (default)
+    """
+    audio = AudioSegment.from_file(audio_path)
+    chunks = []
+
+    for i in range(0, len(audio), chunk_length_ms):
+        chunk = audio[i:i + chunk_length_ms]
+        chunk_name = f"chunk_{uuid.uuid4().hex}.wav"
+        chunk.export(chunk_name, format="wav")
+        chunks.append(chunk_name)
+
+    return chunks
+
+
 def convert_audio_to_text(audio_path: str) -> str:
+    """
+    Transcribes long audio using chunking
+    """
     wav_path = preprocess_audio(audio_path)
+    chunk_files = split_audio(wav_path)
 
-    result = model.transcribe(
-        wav_path,
-        language="en",
-        fp16=False,      # CPU-safe
-        beam_size=1,     # faster decoding
-        verbose=False
-    )
+    full_text = ""
 
-    os.remove(wav_path)  # cleanup temp file
+    for chunk in chunk_files:
+        segments, _ = model.transcribe(
+            chunk,
+            beam_size=1,
+            vad_filter=True
+        )
 
-    return clean_transcript(result["text"])
+        for segment in segments:
+            full_text += segment.text + " "
+
+        os.remove(chunk)  # cleanup chunk
+
+    os.remove(wav_path)  # cleanup preprocessed file
+
+    return clean_transcript(full_text)
 
 
 def clean_transcript(text: str) -> str:

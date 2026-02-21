@@ -2,6 +2,7 @@ from faster_whisper import WhisperModel
 from pydub import AudioSegment
 import os
 import uuid
+import subprocess
 
 # 🔥 Load model once
 model = WhisperModel(
@@ -10,7 +11,26 @@ model = WhisperModel(
     compute_type="int8",
     cpu_threads=8
 )
+def preprocess_audio(input_path: str) -> str:
+    """
+    Converts audio to 16kHz mono WAV
+    """
+    output_path = f"temp_{uuid.uuid4().hex}.wav"
 
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-i", input_path,
+            "-ar", "16000",
+            "-ac", "1",
+            output_path
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
+    )
+
+    return output_path
 def split_audio(audio_path, chunk_length_ms=5 * 60 * 1000):
     """
     Splits audio into chunks (default: 5 minutes)
@@ -29,7 +49,9 @@ def split_audio(audio_path, chunk_length_ms=5 * 60 * 1000):
 
 
 def transcribe_long_audio(audio_path):
-    chunk_files = split_audio(audio_path)
+
+    wav_path = preprocess_audio(audio_path)
+    chunk_files = split_audio(wav_path)
     full_text = ""
 
     for chunk in chunk_files:
@@ -50,6 +72,6 @@ def transcribe_long_audio(audio_path):
 
 
 # 🔥 Test
-text = transcribe_long_audio("meeting.wav")
+text = transcribe_long_audio(r"C:\Users\anura\Downloads\audio15.mp3")
 print("\nFINAL TRANSCRIPT:\n")
 print(text)
