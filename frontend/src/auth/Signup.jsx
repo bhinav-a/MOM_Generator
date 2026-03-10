@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { signup } from "./auth";
 import { ArrowRight, Loader2, Zap } from "lucide-react";
 
 export default function Signup() {
@@ -13,25 +14,7 @@ export default function Signup() {
     setLoading(true);
 
     try {
-      const res = await fetch(
-        "http://127.0.0.1:8000/auth/signup/request-otp",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email }),
-        }
-      );
-
-      const data = await res.json();
-
-      console.log("STATUS:", res.status);
-      console.log("RESPONSE:", data);
-
-      if (!res.ok) {
-        throw new Error(data.detail || "OTP request failed");
-      }
+      await signup({ email });
 
       // ✅ move to OTP screen
       navigate("/verify-otp", {
@@ -39,7 +22,7 @@ export default function Signup() {
       });
     } catch (err) {
       console.error("❌ SIGNUP ERROR:", err);
-      alert(err.message || "Failed to send OTP");
+      alert(err.response?.data?.detail || "Failed to send OTP");
     } finally {
       setLoading(false);
     }
