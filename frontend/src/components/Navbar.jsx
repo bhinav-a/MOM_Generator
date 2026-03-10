@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { Upload, Clock, LogOut, Zap } from "lucide-react";
+import { Upload, Clock, LogOut, Zap, Mic } from "lucide-react";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -38,6 +38,18 @@ export default function Navbar() {
             >
               <Upload className="w-4 h-4" />
               Upload
+            </Link>
+
+            <Link
+              to="/live"
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
+                isActive("/live")
+                  ? "text-black bg-gray-100"
+                  : "text-gray-600 hover:text-black hover:bg-gray-50"
+              }`}
+            >
+              <Mic className="w-4 h-4" />
+              Live Record
             </Link>
 
             <Link

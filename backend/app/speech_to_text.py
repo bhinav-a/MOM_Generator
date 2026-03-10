@@ -4,6 +4,7 @@ import re
 import subprocess
 import uuid
 import os
+import tempfile
 
 # ✅ Optimized model for CPU
 model = WhisperModel(
@@ -18,9 +19,12 @@ def preprocess_audio(input_path: str) -> str:
     """
     Converts audio to 16kHz mono WAV
     """
-    output_path = f"temp_{uuid.uuid4().hex}.wav"
+    output_path = os.path.join(
+        tempfile.gettempdir(),
+        f"temp_{uuid.uuid4().hex}.wav"
+    )
 
-    subprocess.run(
+    result = subprocess.run(
         [
             "ffmpeg",
             "-y",
@@ -30,8 +34,11 @@ def preprocess_audio(input_path: str) -> str:
             output_path
         ],
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
+        stderr=subprocess.PIPE
     )
+
+    if result.returncode != 0:
+        print(f"FFmpeg error: {result.stderr.decode()}")
 
     return output_path
 
@@ -45,7 +52,10 @@ def split_audio(audio_path: str, chunk_length_ms=5 * 60 * 1000):
 
     for i in range(0, len(audio), chunk_length_ms):
         chunk = audio[i:i + chunk_length_ms]
-        chunk_name = f"chunk_{uuid.uuid4().hex}.wav"
+        chunk_name = os.path.join(
+            tempfile.gettempdir(),
+            f"chunk_{uuid.uuid4().hex}.wav"
+        )
         chunk.export(chunk_name, format="wav")
         chunks.append(chunk_name)
 
@@ -76,6 +86,30 @@ def convert_audio_to_text(audio_path: str) -> str:
     os.remove(wav_path)  # cleanup preprocessed file
 
     return clean_transcript(full_text)
+
+
+def transcribe_chunk(audio_path: str) -> str:
+    """
+    Transcribes a single short audio chunk (for real-time live recording).
+    No splitting — expects chunks of ~3-10 seconds.
+    """
+    wav_path = preprocess_audio(audio_path)
+
+    try:
+        segments, _ = model.transcribe(
+            wav_path,
+            beam_size=1,
+            vad_filter=True
+        )
+
+        text = ""
+        for segment in segments:
+            text += segment.text + " "
+
+        return clean_transcript(text)
+    finally:
+        if os.path.exists(wav_path):
+            os.remove(wav_path)
 
 
 def clean_transcript(text: str) -> str:

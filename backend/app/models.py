@@ -20,6 +20,7 @@ class MOM(Base):
 
     transcript = Column(Text , nullable=False)
     mom_text = Column(Text , nullable=False)
+    source = Column(String, default="upload")
 
     created_at = Column(DateTime , default=datetime.utcnow)
 

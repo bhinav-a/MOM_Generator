@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, UploadFile, File, HTTPException
+from fastapi import FastAPI, Depends, UploadFile, File, HTTPException, WebSocket, Form
 import shutil
 import uuid
 import os
@@ -10,6 +10,7 @@ from app.models import User , MOM , EmailOTP
 from app.dependencies import get_current_user
 from app.speech_to_text import convert_audio_to_text
 from app.mom_generator import generate_mom
+from app.live_transcription import handle_live_transcription
 from app.security import verify_password
 from app.auth import create_access_token
 from app.schemas import UserLogin , UserSignup , SignupOTPRequest
@@ -26,10 +27,12 @@ from app.schemas import VerifyOTPRequest
 
 load_dotenv()
 
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -103,7 +106,7 @@ async def generate_mom_api(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    if not file.filename.endswith((".mp3", ".wav", ".m4a")):
+    if not file.filename.endswith((".mp3", ".wav", ".m4a", ".webm")):
         raise HTTPException(status_code=400, detail="Unsupported audio format")
 
     file_id = f"{uuid.uuid4().hex}_{file.filename}"
@@ -123,7 +126,8 @@ async def generate_mom_api(
         new_mom = MOM(
             user_id=current_user.id,
             transcript=transcript,
-            mom_text=mom_text
+            mom_text=mom_text,
+            source="upload"
         )
 
         db.add(new_mom)
@@ -139,6 +143,11 @@ async def generate_mom_api(
     finally:
         if os.path.exists(file_path):
             os.remove(file_path)
+
+
+@app.websocket("/ws/live-transcribe")
+async def live_transcribe_ws(websocket: WebSocket):
+    await handle_live_transcription(websocket)
 
 
 
@@ -158,7 +167,8 @@ def get_mom_history(
         {
             "id": mom.id,
             "created_at": mom.created_at,
-            "preview": mom.mom_text[:200]
+            "preview": mom.mom_text[:200],
+            "source": mom.source or "upload"
         }
         for mom in moms
     ]
@@ -182,7 +192,8 @@ def get_single_mom(
         "id": mom.id,
         "created_at": mom.created_at,
         "transcript": mom.transcript,
-        "mom": mom.mom_text
+        "mom": mom.mom_text,
+        "source": mom.source or "upload"
     }
 
 @app.post("/auth/signup/request-otp")

@@ -3,6 +3,7 @@ import Login from "./auth/Login";
 import Signup from "./auth/Signup";
 import VerifyOTP from "./auth/VerifyOTP";
 import Upload from "./pages/Upload";
+import LiveRecord from "./pages/LiveRecord";
 import History from "./pages/History";
 import ProtectedRoute from "./auth/ProtectedRoute";
 import ProtectedLayout from "./components/ProtectedLayout";
@@ -34,6 +35,17 @@ export default function App() {
             <ProtectedRoute>
               <ProtectedLayout>
                 <History />
+              </ProtectedLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/live"
+          element={
+            <ProtectedRoute>
+              <ProtectedLayout>
+                <LiveRecord />
               </ProtectedLayout>
             </ProtectedRoute>
           }

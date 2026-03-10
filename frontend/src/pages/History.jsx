@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import API from "../api/api";
-import { FileText, Download, X, Loader2, Clock, Trash2 } from "lucide-react";
+import { FileText, Download, X, Loader2, Clock, Trash2, Upload, Mic } from "lucide-react";
 
 export default function History() {
   const [moms, setMoms] = useState([]);
@@ -104,9 +104,19 @@ export default function History() {
                 <p className="font-medium text-black mb-2 line-clamp-2">
                   {m.preview}
                 </p>
-                <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <Clock className="w-4 h-4" />
-                  {formatDate(m.created_at)}
+                <div className="flex items-center gap-3 text-sm text-gray-500">
+                  <div className="flex items-center gap-1">
+                    <Clock className="w-4 h-4" />
+                    {formatDate(m.created_at)}
+                  </div>
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                    m.source === "live"
+                      ? "bg-green-50 text-green-700"
+                      : "bg-gray-100 text-gray-600"
+                  }`}>
+                    {m.source === "live" ? <Mic className="w-3 h-3" /> : <Upload className="w-3 h-3" />}
+                    {m.source === "live" ? "Live" : "Upload"}
+                  </span>
                 </div>
               </button>
             ))}
