@@ -27,7 +27,8 @@ from app.schemas import VerifyOTPRequest
 
 load_dotenv()
 
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+raw_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+cors_origins = [origin.strip().rstrip("/") for origin in raw_origins if origin.strip()]
 
 app = FastAPI()
 app.add_middleware(
