@@ -13,6 +13,15 @@ def send_otp_email(to_email: str, otp: str):
         f"Your OTP for signup is {otp}. It is valid for 5 minutes."
     )
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-        smtp.login(os.getenv("EMAIL_USER"), os.getenv("EMAIL_PASS"))
-        smtp.send_message(msg)
+    try:
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            if os.getenv("EMAIL_USER") and os.getenv("EMAIL_PASS"):
+                smtp.login(os.getenv("EMAIL_USER"), os.getenv("EMAIL_PASS"))
+            else:
+                print("⚠️ EMAIL_USER or EMAIL_PASS not fully set in environment.")
+            smtp.send_message(msg)
+    except Exception as e:
+        print(f"SMTP Error: {e}")
+        raise
