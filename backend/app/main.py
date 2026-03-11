@@ -238,14 +238,19 @@ def request_signup_otp(
 
     # 📧 3️⃣ SEND EMAIL
     try:
-        send_otp_email(email, otp)
+        # SMTP email sending has been disabled due to Railway outbound port blocks
+        # send_otp_email(email, otp)
+        print(f"✅ DEVELOPMENT MODE: OTP for {email} is {otp}")
     except Exception as e:
         db.delete(otp_entry)
         db.commit()
         print("❌ Email failed:", e)
-        raise HTTPException(status_code=500, detail="Failed to send OTP")
+        raise HTTPException(status_code=500, detail="Failed to log OTP")
 
-    return {"message": "OTP sent successfully"}
+    return {
+        "message": "OTP sent successfully",
+        "dev_otp": otp # Returning OTP purely for testing purposes on Railway!
+    }
 
 
 
