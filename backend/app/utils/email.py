@@ -14,6 +14,13 @@ def send_otp_email(to_email: str, otp: str):
     )
 
     try:
+        # Force IPv4 to avoid "Network is unreachable" if container lacks IPv6
+        import socket
+        old_getaddrinfo = socket.getaddrinfo
+        def new_getaddrinfo(*args, **kwargs):
+            return old_getaddrinfo(args[0], args[1], socket.AF_INET, *args[3:], **kwargs)
+        socket.getaddrinfo = new_getaddrinfo
+
         with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as smtp:
             smtp.ehlo()
             smtp.starttls()
