@@ -51,6 +51,13 @@ models.Base.metadata.create_all(bind=engine)
 def health():
     return {"status": "Backend running"}
 
+@app.get("/debug-cors")
+def debug_cors():
+    return {
+        "raw_env": os.getenv("CORS_ORIGINS", "not_set"),
+        "parsed": cors_origins
+    }
+
 
 @app.post("/auth/signup")
 def signup(user: UserSignup, db: Session = Depends(get_db)):
