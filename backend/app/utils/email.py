@@ -14,20 +14,12 @@ def send_otp_email(to_email: str, otp: str):
     )
 
     try:
-        # Force IPv4 to avoid "Network is unreachable" if container lacks IPv6
-        import socket
-        old_getaddrinfo = socket.getaddrinfo
-        def new_getaddrinfo(*args, **kwargs):
-            return old_getaddrinfo(args[0], args[1], socket.AF_INET, *args[3:], **kwargs)
-        socket.getaddrinfo = new_getaddrinfo
-
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as smtp:
-            smtp.ehlo()
-            smtp.starttls()
-            if os.getenv("EMAIL_USER") and os.getenv("EMAIL_PASS"):
-                smtp.login(os.getenv("EMAIL_USER"), os.getenv("EMAIL_PASS"))
+        # Standard SSL connection to port 465 (Google's recommended encrypted port)
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as smtp:
+            if not os.getenv("EMAIL_USER") or not os.getenv("EMAIL_PASS"):
+                print("⚠️ EMAIL_USER or EMAIL_PASS not set!")
             else:
-                print("⚠️ EMAIL_USER or EMAIL_PASS not fully set in environment.")
+                smtp.login(os.getenv("EMAIL_USER"), os.getenv("EMAIL_PASS"))
             smtp.send_message(msg)
     except Exception as e:
         print(f"SMTP Error: {e}")
